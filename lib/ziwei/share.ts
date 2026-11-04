@@ -2,10 +2,15 @@ import type { BirthFormState } from '@/components/BirthForm';
 import type { BirthInfo } from './types';
 import { branchFromSolarMinutes, resolveZiweiDayOffset, shiftGregorianDate } from './true-solar-time';
 
-/** 根据北京时间 + 经度计算真太阳时时辰支 (0-11) */
-export function calcTrueSolarBranch(clockHour: number, clockMinute: number, longitude: number): number {
+/** 钟表时区中央经线：utcOffsetMinutes / 4（不传 = 北京时间 480 → 120°，国内结果逐位不变；越南 420 → 105°） */
+export function clockMeridian(utcOffsetMinutes?: number): number {
+  return utcOffsetMinutes !== undefined && Number.isFinite(utcOffsetMinutes) ? utcOffsetMinutes / 4 : 120;
+}
+
+/** 根据钟表时间（默认北京时间）+ 经度计算真太阳时时辰支 (0-11) */
+export function calcTrueSolarBranch(clockHour: number, clockMinute: number, longitude: number, utcOffsetMinutes?: number): number {
   const clockMins = clockHour * 60 + clockMinute;
-  const offset = (longitude - 120) * 4;
+  const offset = (longitude - clockMeridian(utcOffsetMinutes)) * 4;
   const solar = ((clockMins + offset) % 1440 + 1440) % 1440;
   if (solar >= 1380 || solar < 60) return 0;
   return Math.floor((solar - 60) / 120) + 1;
@@ -27,7 +32,7 @@ export function formToBirthInfo(form: BirthFormState): BirthInfo {
   // 晚子时换日按真太阳时判定，与时辰支同一口径（见 true-solar-time.ts 的 resolveZiweiDayOffset）。
   // 只看钟表 23 点会和经度校正后的时辰错位：东经 100° 钟表 23:30 是真太阳时 22:10 亥时，不该换日。
   if (!form.unknownTime) {
-    const solar = (parseInt(form.clockHour) || 0) * 60 + (parseInt(form.clockMinute) || 0) + (form.longitude - 120) * 4;
+    const solar = (parseInt(form.clockHour) || 0) * 60 + (parseInt(form.clockMinute) || 0) + (form.longitude - clockMeridian(form.utcOffsetMinutes)) * 4;
     const normalizedMinutes = ((solar % 1440) + 1440) % 1440;
     hour = branchFromSolarMinutes(normalizedMinutes);
     const dayOffset = resolveZiweiDayOffset({ dayOffset: Math.floor(solar / 1440), normalizedMinutes, branch: hour });
@@ -63,6 +68,8 @@ export function formToSearchParams(form: BirthFormState): URLSearchParams {
   if (form.province) p.set('p', form.province);
   if (form.city) p.set('c', form.city);
   if (form.longitude && form.longitude !== 120) p.set('lo', String(form.longitude));
+  if (form.utcOffsetMinutes !== undefined && form.utcOffsetMinutes !== 480) p.set('tz', String(form.utcOffsetMinutes));
+  if (form.country && form.country !== 'CN') p.set('co', form.country);
   p.set('g', form.gender === 'male' ? 'm' : 'f');
   return p;
 }
@@ -73,7 +80,11 @@ export function searchParamsToForm(params: URLSearchParams): Partial<BirthFormSt
   const month = params.get('m');
   const day = params.get('d');
   if (!year || !month || !day) return null;
+  const tz = params.get('tz');
+  const co = params.get('co');
   return {
+    ...(tz && Number.isFinite(Number(tz)) ? { utcOffsetMinutes: Number(tz) } : {}),
+    ...(co === 'VN' ? { country: 'VN' as const } : {}),
     name: params.get('n') || '',
     year,
     month,

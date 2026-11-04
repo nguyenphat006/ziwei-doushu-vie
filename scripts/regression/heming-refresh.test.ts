@@ -12,7 +12,7 @@ assert.ok(start >= 0 && end > start);
 const body = `export function makeRun(ctx) {
   const {chartA,chartB,formA,formB,generateChart,formToBirthInfo,setFormError,
     setAnalyzing,setAnalysis,setAnalysisError,setChartA,setChartB,fetch,
-    setApiMissing,analysisRef} = ctx;
+    setApiMissing,analysisRef,locale = 'zh'} = ctx;
   const useCallback = (fn) => fn;
   ${source.slice(start, end)}
   return runAnalysis;

@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ZiweiChart } from '@/lib/ziwei/types';
+import { useI18n } from '@/components/I18nProvider';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -22,6 +23,7 @@ const PRESET_QUESTIONS = [
 ];
 
 export default function ChatPanel({ chart }: ChatPanelProps) {
+  const { t, locale } = useI18n();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -44,7 +46,9 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       const res = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart, messages: [...messages, userMsg] }),
+        body: JSON.stringify(locale === 'vi'
+          ? { chart, messages: [...messages, userMsg], locale: 'vi' }
+          : { chart, messages: [...messages, userMsg] }),
       });
 
       if (res.status === 404) throw new Error('api-missing');
@@ -83,7 +87,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       const missing = e instanceof Error && e.message === 'api-missing';
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: missing ? '开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。' : '解读失败，请检查API配置或稍后重试。',
+        content: missing ? t('开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。') : t('解读失败，请检查API配置或稍后重试。'),
       }]);
     } finally {
       setLoading(false);
@@ -94,8 +98,8 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
     <div className="flex flex-col h-full rounded-xl overflow-hidden card-glass">
       {/* 标题 */}
       <div className="px-4 py-3 flex-shrink-0" style={{ borderBottom: '1px solid var(--t-border)' }}>
-        <h3 className="text-xs font-medium tracking-widest" style={{ color: 'var(--t-gold)' }}>AI 命盘解读</h3>
-        <p className="text-[10px] mt-0.5" style={{ color: 'var(--t-faint)' }}>倪海厦正宗紫微斗数 · 智慧解析</p>
+        <h3 className="text-xs font-medium tracking-widest" style={{ color: 'var(--t-gold)' }}>{t('AI 命盘解读')}</h3>
+        <p className="text-[10px] mt-0.5" style={{ color: 'var(--t-faint)' }}>{t('倪海厦正宗紫微斗数 · 智慧解析')}</p>
       </div>
 
       {/* 消息列表 */}
@@ -104,8 +108,8 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-8">
             <div className="text-4xl mb-3" style={{ color: 'var(--t-gold)', opacity: 0.15 }}>✦</div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--t-faint)' }}>
-              命盘已生成，可直接提问<br />
-              或从下方选择常见问题开始解读
+              {t('命盘已生成，可直接提问')}<br />
+              {t('或从下方选择常见问题开始解读')}
             </p>
           </motion.div>
         )}
@@ -131,7 +135,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
                 }}
               >
                 {msg.role === 'assistant' && (
-                  <div className="text-[10px] mb-1" style={{ color: 'var(--t-faint)' }}>命理师 ·</div>
+                  <div className="text-[10px] mb-1" style={{ color: 'var(--t-faint)' }}>{t('命理师 ·')}</div>
                 )}
                 <div className="whitespace-pre-wrap text-xs leading-relaxed">
                   {msg.content}
@@ -149,7 +153,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       {messages.length === 0 && (
         <div className="px-3 pb-2 flex-shrink-0">
           <div className="grid grid-cols-2 gap-1.5">
-            {PRESET_QUESTIONS.map((q, i) => (
+            {PRESET_QUESTIONS.map(zh => t(zh)).map((q, i) => (
               <button
                 key={i}
                 onClick={() => sendMessage(q)}
@@ -184,7 +188,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage(input)}
-            placeholder="输入问题，如：我的感情运势如何？"
+            placeholder={t('输入问题，如：我的感情运势如何？')}
             disabled={loading}
             className="flex-1 rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors"
             style={{
@@ -203,7 +207,7 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
               color: 'var(--t-gold)',
             }}
           >
-            解读
+            {t('解读')}
           </button>
         </div>
       </div>

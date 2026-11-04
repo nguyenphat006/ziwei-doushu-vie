@@ -3,6 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ZiweiChart, Palace } from '@/lib/ziwei/types';
 import type { TimeView } from './TimeNav';
+import { useI18n } from '@/components/I18nProvider';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -144,6 +146,12 @@ const PALACE_ROLES: Record<string, string> = {
   '父母宫': '父母关系、文书契约',
 };
 
+// 越南语界面：提示词仍用中文（后端按中文结构解析），只追加「用越南语回答」的要求
+const LOCALE_PROMPT_SUFFIX: Record<Locale, string> = {
+  zh: '',
+  vi: '\n\n（请用越南语回答，紫微术语使用越南通行的汉越词，如 Mệnh、Quan Lộc、Hóa Lộc；保留 **【标题】** 的格式，标题也用越南语。）',
+};
+
 /** Render AI markdown: **【Title】** → gold header, **bold** → strong */
 function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
   const lines = text.split('\n');
@@ -183,6 +191,9 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
 }
 
 export default function InsightPanel({ chart, selectedPalace, selectedSiHua }: InsightPanelProps) {
+  const { t, locale } = useI18n();
+  const localeRef = useRef(locale);
+  useEffect(() => { localeRef.current = locale; }, [locale]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -279,7 +290,9 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
       const res = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart, messages: apiMessages }),
+        body: JSON.stringify(localeRef.current === 'vi'
+          ? { chart, messages: apiMessages, locale: 'vi' }
+          : { chart, messages: apiMessages }),
       });
       if (res.status === 404) throw new Error('api-missing');
       if (!res.ok) throw new Error('请求失败');
@@ -312,7 +325,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
       }
     } catch (e) {
       const missing = e instanceof Error && e.message === 'api-missing';
-      setMessages(prev => [...prev, { role: 'assistant', content: missing ? '开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。' : '解读失败，请稍后重试。' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: missing ? t('开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。') : t('解读失败，请稍后重试。') }]);
     } finally {
       setLoading(false);
       loadingRef.current = false;
@@ -324,7 +337,9 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
     loadingRef.current = true;
     setLoading(true);
 
-    const userMsg: Message = { role: 'user', content: text, hidden };
+    // 隐藏的结构化提示词按界面语言追加回答语言要求（用户可见的追问原样发送）
+    const content = hidden ? text + LOCALE_PROMPT_SUFFIX[localeRef.current] : text;
+    const userMsg: Message = { role: 'user', content, hidden };
     // Capture current messages synchronously via ref (avoids stale closure)
     const apiMessages = [...messagesRef.current, userMsg].map(m => ({
       role: m.role,
@@ -351,13 +366,13 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
 
       {/* ── Topic buttons ── */}
       <div className="flex-shrink-0 px-2 pt-2.5 pb-2" style={{ borderBottom: '1px solid var(--t-border)' }}>
-        <div className="grid grid-cols-6 gap-1">
-          {TOPICS.map(t => {
-            const isActive = activeTopic === t.key;
+        <div className={`grid ${locale === 'vi' ? 'grid-cols-3' : 'grid-cols-6'} gap-1`}>
+          {TOPICS.map(tp => {
+            const isActive = activeTopic === tp.key;
             return (
               <button
-                key={t.key}
-                onClick={() => handleTopicClick(t.key)}
+                key={tp.key}
+                onClick={() => handleTopicClick(tp.key)}
                 disabled={loading}
                 className="py-1.5 text-[10px] font-medium rounded-lg transition-all duration-150 disabled:opacity-40"
                 style={{
@@ -366,7 +381,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
                   color: isActive ? 'var(--t-gold)' : 'var(--t-faint)',
                 }}
               >
-                {t.label}
+                {t(tp.label)}
               </button>
             );
           })}
@@ -380,7 +395,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="text-4xl mb-3" style={{ color: 'var(--t-gold)', opacity: 0.1 }}>✦</div>
-            <p className="text-[10px] animate-pulse" style={{ color: 'var(--t-faint)' }}>命格解读生成中…</p>
+            <p className="text-[10px] animate-pulse" style={{ color: 'var(--t-faint)' }}>{t('命格解读生成中…')}</p>
           </div>
         )}
 
@@ -423,7 +438,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
                   style={{ color: 'var(--t-faint)' }}
                 >
                   <span style={{ color: 'var(--t-gold)', opacity: 0.4 }}>✦</span>
-                  命理解读
+                  {t('命理解读')}
                 </div>
                 <AiContent text={msg.content} streaming={loading && isLastMsg} />
               </motion.div>
@@ -440,7 +455,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="继续追问，如：今年适合换工作吗？"
+            placeholder={t('继续追问，如：今年适合换工作吗？')}
             disabled={loading}
             className="flex-1 rounded-lg px-3 py-2 text-[11px] focus:outline-none transition-colors"
             style={{
@@ -459,7 +474,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
               color: 'var(--t-gold)',
             }}
           >
-            {loading ? '…' : '追问'}
+            {loading ? '…' : t('追问')}
           </button>
         </div>
       </div>

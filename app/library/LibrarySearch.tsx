@@ -8,11 +8,13 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useI18n } from '@/components/I18nProvider';
 
 export default function LibrarySearch() {
   const [q, setQ] = useState('');
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { t, locale } = useI18n();
 
   const submit = () => {
     const query = q.trim();
@@ -36,7 +38,7 @@ export default function LibrarySearch() {
         value={q}
         onChange={e => setQ(e.target.value)}
         onKeyDown={e => e.key === 'Enter' && submit()}
-        placeholder="搜索古籍原文，如：七杀朝斗 / 双禄朝垣 / 化忌"
+        placeholder={t('搜索古籍原文，如：七杀朝斗 / 双禄朝垣 / 化忌')}
         style={{
           flex: 1,
           padding: '10px 14px',
@@ -58,12 +60,13 @@ export default function LibrarySearch() {
           color: 'white',
           fontSize: '13px',
           fontWeight: 600,
-          letterSpacing: '0.15em',
+          letterSpacing: locale === 'vi' ? '0.03em' : '0.15em',
+          whiteSpace: 'nowrap',
           cursor: q.trim() ? 'pointer' : 'not-allowed',
           opacity: q.trim() ? 1 : 0.5,
         }}
       >
-        {isPending ? '…' : '搜索'}
+        {isPending ? '…' : t('搜索')}
       </button>
     </div>
   );

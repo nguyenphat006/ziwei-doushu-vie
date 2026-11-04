@@ -9,6 +9,8 @@ import type { Book, Paragraph, SearchHit } from './types';
 import { guSuiFu } from './data/gusuifu';
 import { ziWeiQuanJi } from './data/quanji';
 import { ziWeiQuanShu } from './data/quanshu';
+import type { Locale } from '../i18n/config';
+import { foldVi, getParagraphVi } from '../i18n/content/classics';
 
 /** 所有已收录古籍 */
 export const ALL_BOOKS: Book[] = [
@@ -90,6 +92,57 @@ export function searchClassics(query: string, limit = 30): SearchHit[] {
           text: p.text,
         });
 
+        if (hits.length >= limit) return hits;
+      }
+    }
+  }
+  return hits;
+}
+
+/** 以原文下标 [idx, idx+len) 为中心截取上下文并高亮 */
+function makeSnippet(text: string, idx: number, len: number, ctx: number): string {
+  const start = Math.max(0, idx - ctx);
+  const end = Math.min(text.length, idx + len + ctx);
+  return (start > 0 ? '…' : '')
+    + escapeHtml(text.slice(start, idx))
+    + `<mark>${escapeHtml(text.slice(idx, idx + len))}</mark>`
+    + escapeHtml(text.slice(idx + len, end))
+    + (end < text.length ? '…' : '');
+}
+
+/**
+ * 按语言检索。
+ * - zh：与 searchClassics 完全相同
+ * - vi：同时匹配中文原文（子串）与越南语译文（不分大小写、不分声调），
+ *       命中译文时附带译文高亮片段；每条结果都带上译文
+ */
+export function searchClassicsLocalized(query: string, locale: Locale, limit = 30): SearchHit[] {
+  if (locale === 'zh') return searchClassics(query, limit);
+  const q = query.trim();
+  if (q.length < 1) return [];
+  const qFolded = foldVi(q);
+
+  const hits: SearchHit[] = [];
+  for (const book of ALL_BOOKS) {
+    for (let ci = 0; ci < book.chapters.length; ci++) {
+      const chapter = book.chapters[ci];
+      for (const p of chapter.paragraphs) {
+        const vi = getParagraphVi(p.id);
+        const zhIdx = p.text.indexOf(q);
+        const viIdx = vi ? foldVi(vi).indexOf(qFolded) : -1;
+        if (zhIdx < 0 && viIdx < 0) continue;
+
+        hits.push({
+          bookSlug: book.slug,
+          bookTitle: book.title,
+          chapterTitle: chapter.title,
+          paragraphId: p.id,
+          chapterIdx: ci,
+          snippet: zhIdx >= 0 ? makeSnippet(p.text, zhIdx, q.length, 40) : escapeHtml(p.text),
+          text: p.text,
+          translation: vi,
+          translationSnippet: vi && viIdx >= 0 ? makeSnippet(vi, viIdx, qFolded.length, 90) : undefined,
+        });
         if (hits.length >= limit) return hits;
       }
     }

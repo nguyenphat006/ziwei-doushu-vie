@@ -51,4 +51,10 @@ export interface SearchHit {
   snippet: string;
   /** 原文 */
   text: string;
+  /** 章节序号（searchClassicsLocalized 填充）*/
+  chapterIdx?: number;
+  /** 越南语译文（越南语模式检索时填充）*/
+  translation?: string;
+  /** 越南语译文高亮片段（含 <mark>；命中译文时有值）*/
+  translationSnippet?: string;
 }
