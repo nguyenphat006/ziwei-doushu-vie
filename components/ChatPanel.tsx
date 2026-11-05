@@ -52,20 +52,26 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       });
 
       if (res.status === 404) throw new Error('api-missing');
-      if (!res.ok) throw new Error('请求失败');
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(typeof err?.error === 'string' ? `server:${err.error}` : '请求失败');
+      }
       if (!res.body) throw new Error('无响应流');
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let assistantText = '';
+      let buffer = '';
 
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        // 一行可能被拆在两次读取之间：末尾不完整的行留到下次拼接
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
@@ -85,9 +91,10 @@ export default function ChatPanel({ chart }: ChatPanelProps) {
       }
     } catch (e) {
       const missing = e instanceof Error && e.message === 'api-missing';
+      const serverError = e instanceof Error && e.message.startsWith('server:') ? e.message.slice(7) : null;
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: missing ? t('开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。') : t('解读失败，请检查API配置或稍后重试。'),
+        content: serverError ?? (missing ? t('开源版不含 AI 解读接口（/api/interpret），需要你自己实现后才能用，详见 README「快速开始」。排盘本身不需要任何 API Key。') : t('解读失败，请检查API配置或稍后重试。')),
       }]);
     } finally {
       setLoading(false);

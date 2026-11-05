@@ -33,7 +33,20 @@ npm run typecheck  # kiểm tra kiểu TypeScript
 npm test           # các bài test hồi quy của bộ máy lập lá số
 ```
 
-**Không cần API key.** Lá số được tính ngay trên trình duyệt. File `.env.local` chỉ cần khi bạn tự viết API luận giải bằng AI.
+**Không cần API key để lập lá số.** Lá số được tính ngay trên trình duyệt.
+
+### Bật AI luận giải (Gemini miễn phí)
+
+1. Lấy API key miễn phí tại https://aistudio.google.com/apikey
+2. Tạo file `.env.local` (đã nằm trong .gitignore) với nội dung:
+   ```
+   GEMINI_API_KEY=key-của-bạn
+   ```
+3. Khởi động lại `npm run dev`, lập lá số rồi bấm các chủ đề luận giải hoặc đặt câu hỏi.
+
+Mặc định dùng `gemini-3.5-flash-lite` (gói miễn phí khoảng 500 lượt/ngày, có giới hạn theo phút). Đổi model bằng `GEMINI_MODEL`. Cũng dùng được DeepSeek (`DEEPSEEK_API_KEY`) hoặc dịch vụ tương thích OpenAI bất kỳ (`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`); xem `.env.example`.
+
+Lưu ý: gói miễn phí của Google có thể dùng dữ liệu gửi lên để cải thiện sản phẩm, nên đừng nhập thông tin nhạy cảm.
 
 ## Các trang
 
@@ -75,7 +88,7 @@ Nếu thiếu bản dịch, giao diện hiển thị tiếng Trung gốc. Ở m�
 
 ## Không có trong mã nguồn mở
 
-Kho luận đoán (`lib/ziwei/db-analysis.ts` chỉ là placeholder), prompt AI, các API backend (`/api/interpret`, `/api/heming`) và hệ thống người dùng đều không có trong bản mã nguồn mở. Muốn có AI luận giải, bạn tự viết API. Request đã gửi kèm trường `locale: 'vi'` để backend biết cần trả lời bằng tiếng Việt.
+Kho luận đoán (`lib/ziwei/db-analysis.ts` chỉ là placeholder), prompt AI gốc của bản thương mại, API `/api/heming` (AI phân tích hợp lá số) và hệ thống người dùng đều không có trong bản mã nguồn mở. Bản này đã tự viết `/api/interpret` (`app/api/interpret/route.ts`, prompt ở `lib/ziwei/chart-prompt.ts`) để luận giải một lá số.
 
 ## Giấy phép
 
